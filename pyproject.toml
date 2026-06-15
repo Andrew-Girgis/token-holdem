@@ -7,6 +7,8 @@ requires-python = ">=3.13"
 dependencies = [
     "accelerate>=1.14.0",
     "gradio>=6.18.0",
+    "llama-cpp-python>=0.3.29",
+    "modal>=1.5.0",
     "pytest>=9.1.0",
     "torch>=2.12.0",
     "transformers>=5.12.0",

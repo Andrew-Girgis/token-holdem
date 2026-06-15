@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import itertools
+import json
 import time
 import uuid
 import warnings
 from dataclasses import dataclass, field
+from html import escape
 
 warnings.filterwarnings(
     "ignore",
@@ -19,7 +21,7 @@ from token_holdem.engine import GameState, make_players
 from token_holdem.leaderboard import Leaderboard
 from token_holdem.logging_utils import get_logger, log_event
 from token_holdem.logging_utils import LOG_FILE
-from token_holdem.model_runtime import TransformersRuntime
+from token_holdem.model_runtime import ModelRuntimeUnavailable, SUPPORTED_TRANSFORMERS_MODELS, get_model_runtime, model_runtime_statuses
 from token_holdem.render import CSS, hall_markdown, leaderboard_markdown, log_markdown, table_html
 
 
@@ -37,7 +39,7 @@ class AppSession:
 
 
 leaderboard = Leaderboard()
-model_runtime = TransformersRuntime()
+model_runtime = get_model_runtime()
 logger = get_logger("token_holdem.app")
 
 
@@ -45,7 +47,7 @@ def _play_outputs(session: AppSession | None, status: str = ""):
     game = session.game if session else None
     return (
         session,
-        table_html(game),
+        table_html(game, chats=session.chats if session else None),
         log_markdown(game, session.chats if session else None),
         _leaderboard_md(),
         _hall_md(),
@@ -62,13 +64,18 @@ def _play_status(session: AppSession | None) -> str:
     if session.stopped:
         return "You are busted. Rebuy to keep playing this cash game."
     game = session.game
+    human = next((player for player in game.players if player.is_human), None)
+    human_status = ""
+    if human:
+        to_call = min(max(0, game.current_bet - human.bet), human.stack)
+        human_status = f" To Call: {to_call} · Your Stack: {human.stack}."
     if game.result:
-        return f"Hand complete: {game.result.summary} Click Next Hand to continue with current stacks."
+        return f"Hand complete: {game.result.summary} Click Next Hand to continue with current stacks.{human_status}"
     current = game.current_player()
     if current.is_human:
         legal = game.legal_actions(current.id)
-        return f"Your turn. To call: {legal['to_call']}. Stack: {current.stack}."
-    return f"{current.name} is thinking..."
+        return f"Your turn. To Call: {legal['to_call']} · Your Stack: {current.stack}."
+    return f"{current.name} is thinking...{human_status}"
 
 
 def _action_button_updates(session: AppSession | None):
@@ -327,13 +334,18 @@ def run_arena(seed: int | None, hands: int):
                 session = _start_game("", seed, "arena")
             hand_no = next(HAND_COUNTER)
             while session.game and not session.game.result:
-                _take_ai_turn(session, hand_no, use_models=True)
-                yield table_html(session.game, reveal_all=True), log_markdown(session.game, session.chats), _leaderboard_md(), _hall_md()
+                try:
+                    _take_ai_turn(session, hand_no, use_models=True)
+                except ModelRuntimeUnavailable as exc:
+                    _surface_model_error(session, session.game.current_player().name if session.game else "unknown", exc)
+                    yield table_html(session.game, reveal_all=True, chats=session.chats), log_markdown(session.game, session.chats), _leaderboard_md(), _hall_md()
+                    return
+                yield table_html(session.game, reveal_all=True, chats=session.chats), log_markdown(session.game, session.chats), _leaderboard_md(), _hall_md()
                 time.sleep(0.25)
             if session.game and session.game.result:
                 _record_result(session.game, "arena")
                 session.chats.append(_chronicle(session.game))
-                yield table_html(session.game, reveal_all=True), log_markdown(session.game, session.chats), _leaderboard_md(), _hall_md()
+                yield table_html(session.game, reveal_all=True, chats=session.chats), log_markdown(session.game, session.chats), _leaderboard_md(), _hall_md()
                 time.sleep(0.5)
     except Exception:
         logger.exception("callback_failed", extra={"event": {"callback": "run_arena", "seed": seed, "hands": hands, "use_models": True}})
@@ -348,8 +360,13 @@ def _advance_ai_until_human(session: AppSession, hand_no: int, use_models: bool 
 def _advance_ai_until_human_stream(session: AppSession, hand_no: int, use_models: bool = False):
     while session.game and not session.game.result and not session.game.current_player().is_human:
         player = session.game.current_player()
-        yield _play_outputs(session, status=f"{player.name} is thinking with {'local inference' if use_models else 'fallback persona'}...")
-        _take_ai_turn(session, hand_no, use_models=use_models)
+        yield _play_outputs(session, status=f"{player.name} is thinking with {'model runtime' if use_models else 'fallback persona'}...")
+        try:
+            _take_ai_turn(session, hand_no, use_models=use_models)
+        except ModelRuntimeUnavailable as exc:
+            _surface_model_error(session, player.name, exc)
+            yield _play_outputs(session, status=f"Model unavailable: {exc}")
+            return
         yield _play_outputs(session, status=f"{player.name} acted. {_play_status(session)}")
 
 
@@ -384,6 +401,13 @@ def _take_ai_turn(session: AppSession, hand_no: int, use_models: bool = False) -
         session.chats.append(f"{player.name}: {decision['table_talk']}")
         log_event(logger, "ai_decision", session_id=game.session_id, hand_id=game.hand_id, orbit_id=game.orbit_id, player=player.name, source="fallback", status="disabled", action=decision.get("action"), amount=decision.get("amount"), street=game.street.value)
     game.apply_action(decision["action"], int(decision.get("amount") or 0))
+
+
+def _surface_model_error(session: AppSession, player_name: str, exc: ModelRuntimeUnavailable) -> None:
+    game = session.game
+    session.chats.append(f"System: {player_name} could not act because model inference is unavailable: {exc}")
+    if game:
+        log_event(logger, "ai_decision_blocked", session_id=game.session_id, hand_id=game.hand_id, orbit_id=game.orbit_id, player=player_name, error=str(exc))
 
 
 def _record_result(game: GameState, mode: str) -> None:
@@ -431,47 +455,190 @@ def recent_logs(limit: int = 80) -> str:
     return "```json\n" + "\n".join(lines) + "\n```"
 
 
+def model_runtime_report(limit: int = 800) -> str:
+    rows: dict[str, dict[str, str]] = {
+        profile.name: {
+            "model": SUPPORTED_TRANSFORMERS_MODELS.get(profile.name, profile.model_id),
+            "source": "not observed",
+            "reason": "No decision logged in the recent log window.",
+            "last_action": "-",
+        }
+        for profile in ROSTER
+    }
+    if LOG_FILE.exists():
+        for line in LOG_FILE.read_text(encoding="utf-8").splitlines()[-limit:]:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            player = event.get("player")
+            if player not in rows:
+                continue
+            message = event.get("message")
+            if message == "model_runtime_success":
+                rows[player]["source"] = "real inference"
+                rows[player]["reason"] = event.get("model_id", rows[player]["model"])
+                rows[player]["last_action"] = _runtime_action_label(event)
+            elif message == "model_runtime_partial_fallback":
+                rows[player]["source"] = "partial fallback"
+                rows[player]["reason"] = f"{event.get('model_id', rows[player]['model'])}: {event.get('reason', 'unknown')}"
+                rows[player]["last_action"] = _runtime_action_label(event)
+            elif message == "model_runtime_unsupported":
+                rows[player]["source"] = "fallback"
+                rows[player]["reason"] = f"{event.get('model_id', rows[player]['model'])}: {event.get('reason', 'unsupported runtime')}"
+            elif message == "model_runtime_failed":
+                rows[player]["source"] = "fallback"
+                rows[player]["reason"] = f"{event.get('error_type', 'Error')}: {str(event.get('error', 'unknown'))[:180]}"
+            elif message == "model_runtime_modal_success":
+                rows[player]["source"] = "modal inference"
+                rows[player]["reason"] = event.get("model_id", rows[player]["model"])
+                rows[player]["last_action"] = _runtime_action_label(event)
+            elif message == "model_runtime_modal_failed":
+                rows[player]["source"] = "unavailable"
+                rows[player]["reason"] = f"Modal: {str(event.get('error', 'unknown'))[:180]}"
+            elif message == "model_runtime_modal_disabled":
+                rows[player]["source"] = "disabled"
+                rows[player]["reason"] = str(event.get("reason", "disabled"))[:180]
+            elif message == "model_runtime_modal_call_started":
+                rows[player]["source"] = "modal call started"
+                rows[player]["reason"] = event.get("model_id", rows[player]["model"])
+            elif message == "model_runtime_deterministic_dev":
+                rows[player]["source"] = "deterministic dev"
+                rows[player]["reason"] = "Explicit TOKEN_HOLDEM_ALLOW_DETERMINISTIC_BOTS=1 mode"
+                rows[player]["last_action"] = _runtime_action_label(event)
+            elif message == "ai_decision":
+                rows[player]["last_action"] = _runtime_action_label(event)
+                if event.get("source") in {"fallback", "local_model", "local_model_partial_fallback", "modal_model", "deterministic_dev"}:
+                    rows[player]["source"] = {
+                        "fallback": "fallback",
+                        "local_model": "real inference",
+                        "local_model_partial_fallback": "partial fallback",
+                        "modal_model": "modal inference",
+                        "deterministic_dev": "deterministic dev",
+                    }[event["source"]]
+                    rows[player]["reason"] = str(event.get("status", rows[player]["reason"]))[:220]
+    lines = [
+        '<div class="runtime-report">',
+        "<h3>Model Runtime Status</h3>",
+        "<table><thead><tr><th>Seat</th><th>Configured model</th><th>Recent source</th><th>Last action</th><th>Reason/status</th></tr></thead><tbody>",
+    ]
+    for profile in ROSTER:
+        row = rows[profile.name]
+        lines.append(
+            "<tr>"
+            f"<td>{escape(profile.name)}</td>"
+            f"<td><code>{escape(row['model'])}</code></td>"
+            f"<td>{escape(row['source'])}</td>"
+            f"<td>{escape(row['last_action'])}</td>"
+            f"<td>{escape(row['reason'])}</td>"
+            "</tr>"
+        )
+    lines.append("</tbody></table></div>")
+    lines.append('<div class="runtime-report"><h3>Configured Roster</h3><table><thead><tr><th>Seat</th><th>Runtime state</th><th>Note</th></tr></thead><tbody>')
+    for row in model_runtime_statuses():
+        lines.append(
+            "<tr>"
+            f"<td>{escape(row['name'])}</td>"
+            f"<td>{escape(row['state'])}</td>"
+            f"<td>{escape(row['note'])}</td>"
+            "</tr>"
+        )
+    lines.append("</tbody></table></div>")
+    return "\n".join(lines)
+
+
+def _runtime_action_label(event: dict) -> str:
+    action = event.get("action") or "-"
+    amount = event.get("amount")
+    if amount not in {None, "", 0, "0"}:
+        return f"{action} {amount}"
+    return str(action)
+
+
+def diagnostics_outputs():
+    return model_runtime_report(), recent_logs()
+
+
 def build_app() -> gr.Blocks:
     _ensure_roster()
     with gr.Blocks(title="Token Hold'em") as demo:
-        gr.HTML('<div class="app-title"><h1>Token Hold\'em</h1><p>A tiny pixel tavern where small models gamble with big personalities.</p></div>')
+        gr.HTML('<div class="app-title"><h1>Token Hold\'em</h1><p>Candlelit Texas Hold\'em for one human challenger and seven tavern-tuned LLMs.</p></div>')
         play_state = gr.State(None)
         with gr.Tab("Play Mode"):
-            with gr.Row():
-                human_name = gr.Textbox(label="Your tavern name", value="Human Wanderer")
-                play_seed = gr.Number(label="Seed", value=0, precision=0)
-                start_btn = gr.Button("Quick Seat", variant="primary")
-                next_btn = gr.Button("Next Hand")
-                rebuy_btn = gr.Button("Rebuy 1000", interactive=False)
-            play_table = gr.HTML(table_html(None))
-            with gr.Row():
-                fold_btn = gr.Button("Fold", interactive=False)
-                check_btn = gr.Button("Check", interactive=False)
-                call_btn = gr.Button("Call", interactive=False)
-                min_btn = gr.Button("Min Raise", interactive=False)
-                half_btn = gr.Button("Half-Pot", interactive=False)
-                pot_btn = gr.Button("Pot", interactive=False)
-                all_in_btn = gr.Button("All-In", interactive=False)
-            play_status = gr.Markdown("Quick Seat starts a cash-game session.")
-            play_log = gr.Markdown("No hand yet.")
-            hand_review = gr.Markdown("**Hand Review:** No active hand.")
+            with gr.Group(elem_classes="tavern-app-shell"):
+                gr.HTML(
+                    """
+                    <div class="tavern-background" aria-hidden="true">
+                      <div class="tavern-stonework"></div>
+                      <div class="tavern-bar-backdrop"></div>
+                      <div class="tavern-floor"></div>
+                    </div>
+                    <div class="tavern-ambient-lights" aria-hidden="true">
+                      <span></span><span></span><span></span><span></span>
+                    </div>
+                    """
+                    ,
+                    elem_classes="tavern-scene-chrome",
+                )
+                with gr.Column(elem_classes="tavern-left-rail"):
+                    gr.HTML(
+                        """
+                        <section class="rail-plaque">
+                          <div class="rail-kicker">Thousand Token Wood</div>
+                          <h2>Token Hold'em</h2>
+                          <p>Quick-seat into the bottom chair. The seven model regulars handle the rest.</p>
+                        </section>
+                        """
+                    )
+                    with gr.Group(elem_classes="tavern-panel setup-panel"):
+                        human_name = gr.Textbox(label="Your tavern name", value="Human Wanderer")
+                        play_seed = gr.Number(label="Seed", value=0, precision=0)
+                        start_btn = gr.Button("Quick Seat", variant="primary")
+                        next_btn = gr.Button("Next Hand")
+                        rebuy_btn = gr.Button("Rebuy 1000", interactive=False)
+                with gr.Column(elem_classes="poker-stage"):
+                    play_table = gr.HTML(table_html(None))
+                with gr.Column(elem_classes="tavern-right-rail"):
+                    play_log = gr.Markdown("No hand yet.", elem_classes="tavern-panel log-panel")
+                with gr.Group(elem_classes="action-bar"):
+                    play_status = gr.Markdown("Quick Seat starts a cash-game session.", elem_classes="status-scroll action-status")
+                    gr.HTML('<div class="action-bar-caption"><span>Live poker controls</span><strong>Choose your move</strong></div>')
+                    with gr.Row(elem_classes="action-row"):
+                        fold_btn = gr.Button("Fold", interactive=False, elem_classes="poker-action fold-action")
+                        check_btn = gr.Button("Check", interactive=False, elem_classes="poker-action check-action")
+                        call_btn = gr.Button("Call", interactive=False, elem_classes="poker-action call-action")
+                        min_btn = gr.Button("Min Raise", interactive=False, elem_classes="poker-action raise-action")
+                        half_btn = gr.Button("Half-Pot", interactive=False, elem_classes="poker-action raise-action")
+                        pot_btn = gr.Button("Pot", interactive=False, elem_classes="poker-action raise-action")
+                        all_in_btn = gr.Button("All-In", interactive=False, elem_classes="poker-action all-in-action")
+                with gr.Group(elem_classes="bottom-status-panel"):
+                    hand_review = gr.Markdown("**Hand Review:** No active hand.", elem_classes="tavern-panel review-panel")
         with gr.Tab("AI Arena"):
-            with gr.Row():
+            with gr.Row(elem_classes="tavern-panel setup-panel"):
                 arena_seed = gr.Number(label="Seed", value=0, precision=0)
                 arena_hands = gr.Slider(label="Hands to auto-play", minimum=1, maximum=10, value=3, step=1)
                 arena_btn = gr.Button("Start Arena", variant="primary")
             arena_table = gr.HTML(table_html(None))
-            arena_log = gr.Markdown("The tavern is quiet.")
+            arena_log = gr.Markdown("The tavern is quiet.", elem_classes="tavern-panel log-panel")
         with gr.Tab("Leaderboard"):
-            leaderboard_out = gr.Markdown(_leaderboard_md())
+            leaderboard_out = gr.Markdown(_leaderboard_md(), elem_classes="tavern-panel leaderboard-panel")
         with gr.Tab("Hall of Fame"):
-            hall_out = gr.Markdown(_hall_md())
+            hall_out = gr.Markdown(_hall_md(), elem_classes="tavern-panel hall-panel")
         with gr.Tab("About"):
-            gr.Markdown("Token Hold'em is a Thousand Token Wood hackathon app. The poker engine is deterministic. Local inference can be enabled for every model seat using small local substitute models while preserving each seat's persona prompt.")
+            gr.Markdown(
+                "## Token Hold'em\n\n"
+                "A deterministic Texas Hold'em engine runs the table while local model personas choose actions and table talk. "
+                "The tavern cast uses inspired character identities, not logos or brand marks, so every seat feels like part of the same cozy poker room.\n\n"
+                "- **Play Mode:** sit as the bottom-center human challenger.\n"
+                "- **AI Arena:** watch the seven LLM seats battle with revealed cards.\n"
+                "- **Leaderboard:** track bankrolls, records, and Hall of Fame plaques.",
+                elem_classes="tavern-panel about-panel",
+            )
         with gr.Tab("Diagnostics"):
-            gr.Markdown("Structured app logs are written to `logs/token_holdem.jsonl`. Framework warnings from Gradio/Starlette may still appear in the terminal separately.")
+            gr.Markdown("Structured app logs are written to `logs/token_holdem.jsonl`. Framework warnings from Gradio/Starlette may still appear in the terminal separately.", elem_classes="tavern-panel")
             refresh_logs = gr.Button("Refresh Recent Logs")
-            logs_out = gr.Markdown(recent_logs())
+            runtime_out = gr.Markdown(model_runtime_report(), elem_classes="tavern-panel runtime-panel")
+            logs_out = gr.Markdown(recent_logs(), elem_classes="tavern-panel log-panel")
 
         play_outputs = [play_state, play_table, play_log, leaderboard_out, hall_out, play_status, hand_review, fold_btn, check_btn, call_btn, min_btn, half_btn, pot_btn, all_in_btn, rebuy_btn]
         start_btn.click(start_play_with_runtime, inputs=[human_name, play_seed], outputs=play_outputs)
@@ -488,7 +655,7 @@ def build_app() -> gr.Blocks:
         ]:
             button.click(action_handler(action), inputs=[play_state], outputs=play_outputs)
         arena_btn.click(run_arena, inputs=[arena_seed, arena_hands], outputs=[arena_table, arena_log, leaderboard_out, hall_out])
-        refresh_logs.click(recent_logs, outputs=[logs_out])
+        refresh_logs.click(diagnostics_outputs, outputs=[runtime_out, logs_out])
     return demo
 
 
@@ -496,4 +663,4 @@ demo = build_app()
 
 
 if __name__ == "__main__":
-    demo.launch(css=CSS)
+    demo.launch(css=CSS, allowed_paths=["assets"])

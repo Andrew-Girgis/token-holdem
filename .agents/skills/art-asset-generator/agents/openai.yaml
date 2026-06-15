@@ -1,0 +1,4 @@
+interface:
+  display_name: "Art Asset Generator"
+  short_description: "Generate final Token Hold'em art assets"
+  default_prompt: "Use $art-asset-generator to generate and integrate a final Token Hold'em image asset."
