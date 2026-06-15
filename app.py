@@ -152,10 +152,10 @@ def _start_game(human_name: str, seed: int | None, mode: str) -> AppSession:
     human_name = (human_name or "Human Wanderer").strip()[:32]
     if mode == "play":
         leaderboard.ensure_player("human", human_name, "human")
-        profiles = ROSTER[:3]
+        profiles = ROSTER[:7]
         players = make_players([profile.name for profile in profiles], human_name=human_name)
     else:
-        profiles = ROSTER
+        profiles = ROSTER[:7]
         players = make_players([profile.name for profile in profiles])
     hand_no = 1
     session = AppSession(hand_no=hand_no, orbit_no=1)

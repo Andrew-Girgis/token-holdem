@@ -64,6 +64,14 @@ ROSTER: list[AgentProfile] = [
         0.16,
         ("Observe the drama of expected value.", "I narrate, therefore I raise.", "A bold hypothesis enters the pot."),
     ),
+    AgentProfile(
+        "Llama Scout",
+        "meta-llama/Llama-3.2-1B-Instruct",
+        "curious, adaptive, observant",
+        0.50,
+        0.14,
+        ("I watched the candle flicker before calling.", "Small stack, wide eyes, steady hand.", "The table has patterns if you listen."),
+    ),
 ]
 
 
