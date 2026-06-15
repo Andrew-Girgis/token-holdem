@@ -4,7 +4,7 @@ from token_holdem.render import DEALER_BUTTON_COORDS, SEAT_COORDS, table_html
 
 def test_table_layout_constants_are_eight_seat_maps():
     assert SEAT_COORDS == {
-        0: (50, 88),
+        0: (50, 82),
         1: (23, 78),
         2: (8, 54),
         3: (18, 24),
@@ -14,7 +14,7 @@ def test_table_layout_constants_are_eight_seat_maps():
         7: (77, 78),
     }
     assert DEALER_BUTTON_COORDS == {
-        0: (50, 74),
+        0: (50, 70),
         1: (30, 69),
         2: (20, 54),
         3: (28, 32),
@@ -51,4 +51,4 @@ def test_dealer_button_uses_slot_coordinates():
 
     html = table_html(session.game)
 
-    assert "--dealer-x: 50%; --dealer-y: 74%;" in html
+    assert "--dealer-x: 50%; --dealer-y: 70%;" in html

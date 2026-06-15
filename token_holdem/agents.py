@@ -19,7 +19,7 @@ ROSTER: list[AgentProfile] = [
     AgentProfile(
         "Nemotron Nano",
         "nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF",
-        "logical, controlled, precise",
+        "cold machine precision, unemotional, calculating",
         0.45,
         0.12,
         ("The tensor smoke says patience.", "I compute. I sip. I continue.", "A clean line through a messy tavern."),
@@ -34,7 +34,7 @@ ROSTER: list[AgentProfile] = [
     ),
     AgentProfile(
         "Gemma",
-        "google/gemma-3-270m-it",
+        "google/gemma-4-12B-it",
         "cautious, methodical, warm",
         0.30,
         0.06,

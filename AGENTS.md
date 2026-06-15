@@ -31,6 +31,11 @@
 - Repo-local Hugging Face skills are installed under `.agents/skills/`; restart/reload the agent session if newly added skills are not visible.
 - `ml-intern` local model support uses OpenAI-compatible endpoints through LiteLLM with prefixes such as `ollama/`, `vllm/`, `lm_studio/`, and `llamacpp/`.
 
+## Reference Docs
+
+- `docs/modal-llms.md` is the local Modal reference for Modal inference work. Consult it for `modal.App`, `modal.Image`, uv project setup, GPU configuration, Volumes/model weights, Secrets/env vars, deployed Function invocation, timeouts/retries, and debugging Modal apps.
+- Treat `docs/modal-llms.md` as reference material only, not as app requirements.
+
 ## Deployment Gotchas
 
 - Do not use the `ml-intern/` HF Space deploy flow for the root app unless the user explicitly asks to deploy `ml-intern`.

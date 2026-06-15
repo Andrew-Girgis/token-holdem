@@ -1,4 +1,13 @@
+import app
 from app import _start_game, _start_next_cash_hand, action_handler, start_play_with_runtime
+from token_holdem.agents import fallback_decide
+from token_holdem.model_runtime import RuntimeDecision
+
+
+class TestRuntime:
+    def decide(self, profile, state_summary):
+        decision = fallback_decide(profile, state_summary, seed=state_summary.get("seed"))
+        return RuntimeDecision(decision, "test_runtime", profile.model_id)
 
 
 def test_cash_hand_preserves_stacks_and_rotates_button():
@@ -30,7 +39,8 @@ def test_busted_human_requires_rebuy_before_next_cash_hand():
     assert "needs a rebuy" in session.chats[-1]
 
 
-def test_action_handler_yields_full_gradio_outputs():
+def test_action_handler_yields_full_gradio_outputs(monkeypatch):
+    monkeypatch.setattr(app, "model_runtime", TestRuntime())
     session = list(start_play_with_runtime("Tester", 100))[-1][0]
     outputs = list(action_handler("call")(session))
 

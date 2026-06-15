@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gradio Game Scene Composer"
+  short_description: "Compose immersive Gradio game scenes"
+  default_prompt: "Use $gradio-game-scene-composer to turn this Gradio app into a full-screen layered game scene."

@@ -1,0 +1,479 @@
+{
+  "schemaVersion": 1,
+  "project": "Token Hold'em",
+  "purpose": "Generated and placeholder asset manifest for the cozy pixel-art tavern poker UI.",
+  "assetPolicy": {
+    "status": "generated-production",
+    "externalAssets": false,
+    "generatedImages": true,
+    "notes": "Generated bitmap assets are local repo files under assets/token-holdem. Null file values mean that asset slot is still pending generation."
+  },
+  "layoutContext": {
+    "source": "token_holdem/render.py",
+    "observedOn": "2026-06-15",
+    "shell": "Full-page Gradio game scene with tavern-left-rail, poker-stage, tavern-right-rail, action-bar, and bottom-status-panel regions over CSS-rendered tavern background layers.",
+    "table": "CSS-rendered 16:10 table surface inside the center poker-stage with fixed center HUD and 8 stable seats.",
+    "seats": "Seat 0 is the human bottom-center seat. Seats 1-7 are LLM seats around the table on desktop and a two-column grid on narrow mobile. Each live seat has avatar, HUD, last-action, card, status, and speech-bubble slots.",
+    "controls": "Action buttons remain real Gradio controls outside the table art in the bottom action-bar.",
+    "liveText": "Cards, pot, player names, stacks, action state, and controls are rendered by code and must not be baked into images."
+  },
+  "assets": [
+    {
+      "id": "tavern-bg-main",
+      "file": "/gradio_api/file=assets/token-holdem/tavern-bg-main-1672x941.png",
+      "role": "background",
+      "dimensions": {
+        "width": 1672,
+        "height": 941
+      },
+      "format": "png",
+      "alpha": false,
+      "anchor": "full-bleed",
+      "safeArea": "Keep the central 54% width and 46% height darker and low-detail so the table, center HUD, cards, and seats stay readable. Avoid key detail near top/bottom HUD margins.",
+      "states": [
+        "desktop",
+        "mobile"
+      ],
+      "promptRef": "docs/token-holdem-asset-prompts.md#tavern-background",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py CSS .gradio-container",
+        "token_holdem/render.py CSS .tavern-scene-chrome .tavern-background"
+      ],
+      "qa": [
+        "No text, logos, UI screenshots, or playing cards in the background.",
+        "Includes stone walls, bar, bartender, shelves, candles, fireplace glow, and quiet central safe zone.",
+        "Readable under the existing dark table and seat panels."
+      ]
+    },
+    {
+      "id": "table-felt-top",
+      "file": null,
+      "role": "table",
+      "dimensions": {
+        "width": 1536,
+        "height": 864
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "table-center",
+      "safeArea": "Table rim must not conflict with seat panels positioned around the ring. Center must stay quiet behind community cards, pot, and street labels.",
+      "states": [
+        "idle"
+      ],
+      "promptRef": "docs/token-holdem-asset-prompts.md#poker-table",
+      "source": "placeholder",
+      "qa": [
+        "Transparent edge if floated above a tavern background.",
+        "No baked cards, chips, dealer labels, player labels, or pot values.",
+        "Works behind the existing center HUD overlay."
+      ]
+    },
+    {
+      "id": "dealer-button-idle",
+      "file": null,
+      "role": "prop",
+      "dimensions": {
+        "width": 256,
+        "height": 256
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "table-center",
+      "safeArea": "Must remain legible at 30-34 CSS px near seat positions and not obscure cards or seat status badges.",
+      "states": [
+        "idle"
+      ],
+      "promptRef": "docs/token-holdem-asset-prompts.md#dealer-button",
+      "source": "placeholder",
+      "qa": [
+        "Single circular chip silhouette with alpha.",
+        "Any letter or icon must stay readable at small size.",
+        "No baked shadow extending beyond transparent padding."
+      ]
+    },
+    {
+      "id": "card-back-hidden",
+      "file": null,
+      "role": "card",
+      "dimensions": {
+        "width": 512,
+        "height": 716
+      },
+      "format": "png",
+      "alpha": false,
+      "anchor": "hud",
+      "safeArea": "Designed for hidden mini-cards at 24-28 px wide and optional larger card backs at 36-50 px wide.",
+      "states": [
+        "idle"
+      ],
+      "promptRef": "docs/token-holdem-asset-prompts.md#card-back",
+      "source": "placeholder",
+      "qa": [
+        "No rank, suit, readable brand, or watermark.",
+        "Rounded rectangle shape matches existing CSS card proportions.",
+        "Pattern remains readable when scaled down."
+      ]
+    },
+    {
+      "id": "seat-panel-frame",
+      "file": null,
+      "role": "panel",
+      "dimensions": {
+        "width": 768,
+        "height": 384
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Leave a clean inner area for live player name, stack, badges, bet, status, and two mini-card slots.",
+      "states": [
+        "idle",
+        "active",
+        "folded",
+        "all-in",
+        "empty"
+      ],
+      "promptRef": "docs/token-holdem-asset-prompts.md#seat-panel",
+      "source": "placeholder",
+      "qa": [
+        "No baked text or icons that duplicate live status badges.",
+        "Edges support compact desktop seats and narrower mobile grid seats.",
+        "Active and all-in variants must not rely on color alone."
+      ]
+    },
+    {
+      "id": "avatar-professor-odds",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-professor-odds-neutral-512.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 512,
+        "height": 512
+      },
+      "format": "png",
+      "alpha": false,
+      "anchor": "seat",
+      "safeArea": "Readable in a 78 CSS px avatar slot; square portrait with dark tavern backing.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, cropped from avatar-sheet-token-holdem-1254.png",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Professor Odds"
+      ],
+      "qa": [
+        "No logos, exact mascots, wordmarks, or product UI marks.",
+        "Professor silhouette reads through gray hair, glasses, bow tie, and ledger."
+      ]
+    },
+    {
+      "id": "avatar-maverick-frontier",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-maverick-frontier-neutral-512.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 512,
+        "height": 512
+      },
+      "format": "png",
+      "alpha": false,
+      "anchor": "seat",
+      "safeArea": "Readable in a 78 CSS px avatar slot; square portrait with dark tavern backing.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, cropped from avatar-sheet-token-holdem-1254.png",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Maverick"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Frontier gambler reads through hat, red scarf, grin, and lucky chip."
+      ]
+    },
+    {
+      "id": "avatar-nemotron-automaton",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-nemotron-automaton-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large transparent half-body table-facing avatar. Character is the main visual and plaque sits below the figure.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Nemotron Nano"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Transparent half-body composition works over the table edge.",
+        "Distinct from all other active roster avatars."
+      ]
+    },
+    {
+      "id": "avatar-qwen-oracle",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-qwen-oracle-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large transparent half-body table-facing avatar. Character is the main visual and plaque sits below the figure.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Qwen"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Transparent half-body composition works over the table edge.",
+        "Distinct from all other active roster avatars."
+      ]
+    },
+    {
+      "id": "avatar-gemma-hearth",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-gemma-hearth-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large transparent half-body table-facing avatar. Character is the main visual and plaque sits below the figure.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Gemma"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Transparent half-body composition works over the table edge.",
+        "Distinct from all other active roster avatars."
+      ]
+    },
+    {
+      "id": "avatar-mistral-duelist",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-mistral-duelist-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large transparent half-body table-facing avatar. Character is the main visual and plaque sits below the figure.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Mistral"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Transparent half-body composition works over the table edge.",
+        "Distinct from all other active roster avatars."
+      ]
+    },
+    {
+      "id": "avatar-north-cartographer",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-north-cartographer-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large transparent half-body table-facing avatar. Character is the main visual and plaque sits below the figure.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Cohere North Mini"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Transparent half-body composition works over the table edge.",
+        "Distinct from all other active roster avatars."
+      ]
+    },
+    {
+      "id": "avatar-human-wanderer-halfbody",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-human-wanderer-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large bottom human seat half-body. Character is the main visual and plaque sits below the figure.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py HUMAN_PERSONA"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Human challenger no longer shares the Cohere North avatar.",
+        "Transparent half-body composition works over the table edge."
+      ]
+    },
+    {
+      "id": "avatar-llama-scout-halfbody",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-llama-scout-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large Llama Scout half-body with unique silhouette. Plaque must not cover the face.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Llama Scout"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Llama Scout has a unique scout character and no longer shares Human/Cohere art.",
+        "Readable at large table-seat scale."
+      ]
+    },
+    {
+      "id": "avatar-open-model-savant",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-open-model-savant-halfbody-768.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 768,
+        "height": 768
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "seat",
+      "safeArea": "Large transparent half-body table-facing avatar. Character is the main visual and plaque sits below the figure.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS OpenAI Open Model 20B"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Transparent half-body composition works over the table edge.",
+        "Distinct from all other active roster avatars."
+      ]
+    },
+    {
+      "id": "avatar-sheriff-lawkeeper",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-sheriff-lawkeeper-neutral-512.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 512,
+        "height": 512
+      },
+      "format": "png",
+      "alpha": false,
+      "anchor": "seat",
+      "safeArea": "Readable in a 78 CSS px avatar slot; square portrait with dark tavern backing.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, cropped from avatar-sheet-token-holdem-1254.png",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Sheriff",
+        "token_holdem/render.py unknown-player fallback"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Lawkeeper read is clear through hat, posture, and card-suit pin."
+      ]
+    },
+    {
+      "id": "avatar-gobbo-trickster",
+      "file": "/gradio_api/file=assets/token-holdem/avatar-gobbo-trickster-neutral-512.png",
+      "role": "avatar",
+      "dimensions": {
+        "width": 512,
+        "height": 512
+      },
+      "format": "png",
+      "alpha": false,
+      "anchor": "seat",
+      "safeArea": "Readable in a 78 CSS px avatar slot; square portrait with dark tavern backing.",
+      "states": [
+        "neutral"
+      ],
+      "promptRef": "docs/token-holdem-avatar-personas.md",
+      "source": "generated with Codex image generation, 2026-06-15",
+      "usedBy": [
+        "token_holdem/render.py AVATAR_PERSONAS Gobbo"
+      ],
+      "qa": [
+        "No logos or wordmarks.",
+        "Trickster read is clear through green face, patched hat, grin, chip gesture, and cards."
+      ]
+    },
+    {
+      "id": "ambient-candle-prop",
+      "file": null,
+      "role": "prop",
+      "dimensions": {
+        "width": 256,
+        "height": 512
+      },
+      "format": "png",
+      "alpha": true,
+      "anchor": "overlay",
+      "safeArea": "Small ambient prop only; place away from seat text, cards, pot, and action controls.",
+      "states": [
+        "idle",
+        "lit"
+      ],
+      "promptRef": "docs/token-holdem-asset-prompts.md#ambient-candle",
+      "source": "placeholder",
+      "qa": [
+        "No baked glow strong enough to reduce text contrast.",
+        "Transparent background with tight but safe alpha edges.",
+        "Decorative only and must not intercept clicks if integrated."
+      ]
+    }
+  ]
+}

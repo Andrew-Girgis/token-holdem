@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import gc
 import json
+import os
 import random
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
-from token_holdem.agents import AgentProfile, estimate_strength, fallback_decide
+from token_holdem.agents import AgentProfile, ROSTER, estimate_strength, fallback_decide
 from token_holdem.logging_utils import get_logger, log_event
 
 
@@ -15,13 +16,13 @@ logger = get_logger("token_holdem.model_runtime")
 
 
 SUPPORTED_TRANSFORMERS_MODELS = {
-    "Nemotron Nano": "Qwen/Qwen3-0.6B",
-    "Qwen": "Qwen/Qwen3-0.6B",
-    "Gemma": "Qwen/Qwen3-0.6B",
-    "Cohere North Mini": "Qwen/Qwen3-0.6B",
-    "Mistral": "Qwen/Qwen3-0.6B",
-    "OpenAI Open Model 20B": "Qwen/Qwen3-0.6B",
-    "Llama Scout": "Qwen/Qwen3-0.6B",
+    "Nemotron Nano": "nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF",
+    "Qwen": "lm-kit/qwen-3-0.6b-instruct-gguf",
+    "Gemma": "google/gemma-4-12B-it",
+    "Cohere North Mini": "CohereLabs/North-Mini-Code-1.0",
+    "Mistral": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+    "OpenAI Open Model 20B": "openai/gpt-oss-20b",
+    "Llama Scout": "meta-llama/Llama-3.2-1B-Instruct",
 }
 
 
@@ -30,6 +31,60 @@ class RuntimeDecision:
     decision: dict[str, Any]
     source: str
     status: str
+
+
+class ModelRuntimeUnavailable(RuntimeError):
+    """Raised when a model-enabled hand cannot get a real model decision."""
+
+
+class InferenceRuntime(Protocol):
+    def decide(self, profile: AgentProfile, state_summary: dict[str, Any]) -> RuntimeDecision:
+        ...
+
+
+def env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def persona_fallback_decision(profile: AgentProfile, state_summary: dict[str, Any], status: str, source: str = "fallback") -> RuntimeDecision:
+    decision = apply_poker_sanity_guard(fallback_decide(profile, state_summary, seed=state_summary.get("seed")), state_summary)
+    decision["table_talk"] = template_table_talk(profile, decision["action"], state_summary)
+    return RuntimeDecision(decision, source, status)
+
+
+def deterministic_fallback_enabled() -> bool:
+    return env_flag("TOKEN_HOLDEM_ALLOW_DETERMINISTIC_BOTS")
+
+
+def configured_modal_model_names() -> set[str]:
+    configured = os.getenv("TOKEN_HOLDEM_MODAL_MODEL_NAMES", "all")
+    if configured.strip().lower() in {"", "all", "*"}:
+        return {profile.name for profile in ROSTER}
+    return {name.strip() for name in configured.split(",") if name.strip()}
+
+
+def model_runtime_statuses(enabled_names: set[str] | None = None) -> list[dict[str, str]]:
+    enabled_names = enabled_names if enabled_names is not None else configured_modal_model_names()
+    rows: list[dict[str, str]] = []
+    for profile in ROSTER:
+        model_id = SUPPORTED_TRANSFORMERS_MODELS.get(profile.name, profile.model_id)
+        if profile.name not in enabled_names:
+            state = "disabled"
+            note = "Not included in TOKEN_HOLDEM_MODAL_MODEL_NAMES."
+        elif requires_gguf_runtime(model_id):
+            state = "active through Modal GGUF/llama.cpp"
+            note = "Modal downloads the GGUF and runs it with llama.cpp."
+        elif profile.name == "Llama Scout":
+            state = "active through Modal if HF access is granted"
+            note = "This Hub repository is gated; the Modal HF secret must have access."
+        else:
+            state = "active through Modal Transformers"
+            note = "Modal loads the Transformers model from the Hub."
+        rows.append({"name": profile.name, "model_id": model_id, "state": state, "note": note})
+    return rows
 
 
 def build_prompt(profile: AgentProfile, state_summary: dict[str, Any]) -> str:
@@ -52,10 +107,14 @@ Visible state:
 
 JSON keys:
 - action: one of {legal['actions']}
-- amount: zero unless action is raise; for raise use one raise preset value
+- amount: 0 unless action is raise or all_in
+    - for raise, amount must exactly equal one value from raise_presets
+    - for all_in, amount must equal your full stack
 - reasoning_hint: brief private poker reason
 
-Do not include public table talk here. Do not include examples. If facing a large all-in with a weak hand, fold.
+If facing a large all-in with a weak hand, fold.
+Do not include public table talk here. Do not include examples.
+Respond now with exactly one valid JSON object and no surrounding text.
 """
 
 
@@ -123,6 +182,8 @@ def validate_decision(raw: dict[str, Any] | None, legal: dict[str, Any]) -> dict
         if not presets:
             return None
         amount = min(presets, key=lambda value: abs(value - amount)) if amount else min(presets)
+    elif action == "all_in":
+        amount = int(legal.get("stack") or legal.get("raise_presets", {}).get("all_in") or amount or 0)
     else:
         amount = 0
     table_talk = sanitize_table_talk(str(raw.get("table_talk", "The cards clink like tiny mugs.")))
@@ -237,46 +298,55 @@ def safe_action(legal: dict[str, Any]) -> dict[str, Any]:
     return {"action": action, "amount": 0, "table_talk": "A thoughtful pause settles over the tavern."}
 
 
-class TransformersRuntime:
-    def __init__(self, max_new_tokens: int = 96):
+def requires_gguf_runtime(model_id: str) -> bool:
+    return "gguf" in model_id.lower()
+
+
+class LocalRuntime:
+    def __init__(self, max_new_tokens: int = 96, allow_fallback: bool | None = None):
         self.max_new_tokens = max_new_tokens
+        self.allow_downloads = env_flag("TOKEN_HOLDEM_ALLOW_MODEL_DOWNLOADS")
+        self.allow_fallback = deterministic_fallback_enabled() if allow_fallback is None else allow_fallback
 
     def decide(self, profile: AgentProfile, state_summary: dict[str, Any]) -> RuntimeDecision:
         model_id = SUPPORTED_TRANSFORMERS_MODELS.get(profile.name)
         if not model_id:
-            decision = apply_poker_sanity_guard(fallback_decide(profile, state_summary, seed=state_summary.get("seed")), state_summary)
-            decision["table_talk"] = template_table_talk(profile, decision["action"], state_summary)
             log_event(logger, "model_runtime_unsupported", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name)
-            return RuntimeDecision(
-                decision,
-                "fallback",
-                f"No local Transformers mapping for {profile.name}",
-            )
+            return self._fallback_or_raise(profile, state_summary, f"No local Transformers mapping for {profile.name}")
+        if requires_gguf_runtime(model_id):
+            log_event(logger, "model_runtime_unsupported", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, reason="gguf_requires_llamacpp")
+            return self._fallback_or_raise(profile, state_summary, f"{model_id} requires a GGUF/llama.cpp runtime; local runtime cannot call it")
         try:
             decision = self._generate(model_id, profile, state_summary)
-        except Exception as exc:  # noqa: BLE001 - runtime fallback must catch model/load failures.
-            decision = apply_poker_sanity_guard(fallback_decide(profile, state_summary, seed=state_summary.get("seed")), state_summary)
-            decision["table_talk"] = template_table_talk(profile, decision["action"], state_summary)
+        except Exception as exc:  # noqa: BLE001 - converted to a visible model-unavailable state.
             log_event(logger, "model_runtime_failed", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, error_type=exc.__class__.__name__, error=str(exc))
-            return RuntimeDecision(
-                decision,
-                "fallback",
-                f"Model failed: {exc.__class__.__name__}: {exc}",
-            )
+            return self._fallback_or_raise(profile, state_summary, f"Model failed: {exc.__class__.__name__}: {exc}")
+        used_action_fallback = bool(decision.pop("_runtime_action_fallback", False))
+        if used_action_fallback:
+            log_event(logger, "model_runtime_partial_fallback", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, reason="invalid_decision_json", action=decision.get("action"), amount=decision.get("amount"))
+            if self.allow_fallback:
+                return RuntimeDecision(decision, "local_model_partial_fallback", f"{model_id}; invalid decision JSON, used persona fallback action")
+            raise ModelRuntimeUnavailable(f"{profile.name}: local model returned invalid decision JSON")
         log_event(logger, "model_runtime_success", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, action=decision.get("action"), amount=decision.get("amount"))
         return RuntimeDecision(decision, "local_model", model_id)
+
+    def _fallback_or_raise(self, profile: AgentProfile, state_summary: dict[str, Any], status: str) -> RuntimeDecision:
+        if self.allow_fallback:
+            return persona_fallback_decision(profile, state_summary, status)
+        raise ModelRuntimeUnavailable(f"{profile.name}: {status}")
 
     def _generate(self, model_id: str, profile: AgentProfile, state_summary: dict[str, Any]) -> dict[str, Any]:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, local_files_only=not self.allow_downloads)
         model = AutoModelForCausalLM.from_pretrained(
             model_id,
             dtype="auto",
             device_map="auto",
             trust_remote_code=True,
             low_cpu_mem_usage=True,
+            local_files_only=not self.allow_downloads,
         )
         prompt = build_prompt(profile, state_summary)
         inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
@@ -293,12 +363,14 @@ class TransformersRuntime:
         decision = first_valid_decision(generated, state_summary["legal"])
         decision = apply_poker_sanity_guard(decision, state_summary) if decision is not None else None
         log_event(logger, "model_runtime_generated", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), model_id=model_id, raw_text=generated[:500], parsed=decision, valid=decision is not None)
-        used_decision_fallback = decision is None
         if decision is None:
+            if not self.allow_fallback:
+                raise ModelRuntimeUnavailable(f"{profile.name}: local model returned invalid decision JSON")
             decision = apply_poker_sanity_guard(fallback_decide(profile, state_summary, seed=state_summary.get("seed")), state_summary)
+            decision["_runtime_action_fallback"] = True
         talk = self._generate_table_talk(model, tokenizer, profile, decision["action"], state_summary)
         decision["table_talk"] = finalize_table_talk(profile, decision["action"], talk, state_summary)
-        if used_decision_fallback:
+        if decision.get("_runtime_action_fallback"):
             decision["reasoning_hint"] = "model decision JSON invalid; used persona fallback action with generated banter"
         del model
         del tokenizer
@@ -328,3 +400,104 @@ class TransformersRuntime:
         talk = sanitize_table_talk(str(raw.get("table_talk", ""))) if raw else sanitize_table_talk(generated)
         log_event(logger, "model_table_talk_generated", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, final_action=final_action, raw_text=generated[:300], table_talk=talk)
         return talk
+
+
+class DeterministicDevRuntime:
+    def decide(self, profile: AgentProfile, state_summary: dict[str, Any]) -> RuntimeDecision:
+        decision = apply_poker_sanity_guard(fallback_decide(profile, state_summary, seed=state_summary.get("seed")), state_summary)
+        decision["table_talk"] = template_table_talk(profile, decision["action"], state_summary)
+        log_event(
+            logger,
+            "model_runtime_deterministic_dev",
+            session_id=state_summary.get("session_id", ""),
+            hand_id=state_summary.get("hand_id", ""),
+            orbit_id=state_summary.get("orbit_id", ""),
+            player=profile.name,
+            action=decision.get("action"),
+            amount=decision.get("amount"),
+        )
+        return RuntimeDecision(decision, "deterministic_dev", "TOKEN_HOLDEM_ALLOW_DETERMINISTIC_BOTS=1")
+
+
+class ModalRuntime:
+    def __init__(
+        self,
+        local_runtime: InferenceRuntime | None = None,
+        *,
+        app_name: str | None = None,
+        function_name: str = "run_agent_decision",
+        timeout_seconds: float | None = None,
+        enabled_model_names: set[str] | None = None,
+        remote_function: Any | None = None,
+    ):
+        self.local_runtime = local_runtime or LocalRuntime()
+        self.app_name = app_name or os.getenv("TOKEN_HOLDEM_MODAL_APP_NAME", "token-holdem-inference")
+        self.function_name = function_name
+        self.timeout_seconds = timeout_seconds or float(os.getenv("TOKEN_HOLDEM_MODAL_TIMEOUT_SECONDS", "300"))
+        self.enabled_model_names = enabled_model_names if enabled_model_names is not None else configured_modal_model_names()
+        self._remote_function = remote_function
+
+    def decide(self, profile: AgentProfile, state_summary: dict[str, Any]) -> RuntimeDecision:
+        if profile.name not in self.enabled_model_names:
+            message = f"{profile.name} is disabled by TOKEN_HOLDEM_MODAL_MODEL_NAMES"
+            log_event(logger, "model_runtime_modal_disabled", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=profile.model_id, reason=message)
+            raise ModelRuntimeUnavailable(message)
+        model_id = SUPPORTED_TRANSFORMERS_MODELS.get(profile.name, profile.model_id)
+        try:
+            log_event(logger, "model_runtime_modal_call_started", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, app_name=self.app_name, function_name=self.function_name)
+            response = self._call_remote(profile, model_id, state_summary)
+        except Exception as exc:  # noqa: BLE001 - converted to a visible model-unavailable state.
+            log_event(logger, "model_runtime_modal_failed", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, error_type=exc.__class__.__name__, error=str(exc))
+            raise ModelRuntimeUnavailable(f"{profile.name}: Modal inference unavailable: {exc.__class__.__name__}: {exc}") from exc
+        if response.get("error"):
+            log_event(logger, "model_runtime_modal_failed", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, error=response["error"], raw_text=str(response.get("raw_model_output", ""))[:500])
+            raise ModelRuntimeUnavailable(f"{profile.name}: Modal inference returned an error: {response['error']}")
+        decision = validate_decision(
+            {
+                "action": response.get("action"),
+                "amount": response.get("bet_amount"),
+                "reasoning_hint": response.get("explanation", ""),
+                "table_talk": response.get("commentary", ""),
+            },
+            state_summary["legal"],
+        )
+        if decision is None:
+            log_event(logger, "model_runtime_modal_failed", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, error="invalid_remote_decision", raw_text=str(response.get("raw_model_output", ""))[:500])
+            raise ModelRuntimeUnavailable(f"{profile.name}: Modal inference returned an invalid decision")
+        decision = apply_poker_sanity_guard(decision, state_summary)
+        decision["table_talk"] = finalize_table_talk(profile, decision["action"], decision.get("table_talk", ""), state_summary)
+        log_event(logger, "model_runtime_modal_success", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, action=decision.get("action"), amount=decision.get("amount"), raw_text=str(response.get("raw_model_output", ""))[:500])
+        return RuntimeDecision(decision, "modal_model", model_id)
+
+    def _call_remote(self, profile: AgentProfile, model_id: str, state_summary: dict[str, Any]) -> dict[str, Any]:
+        remote_function = self._remote_function or self._lookup_remote_function()
+        call = remote_function.spawn(
+            state_summary,
+            profile.name,
+            profile.persona,
+            model_id,
+            state_summary["legal"],
+            build_prompt(profile, state_summary),
+        )
+        response = call.get(timeout=self.timeout_seconds)
+        if not isinstance(response, dict):
+            raise TypeError(f"Expected Modal response dict, got {type(response).__name__}")
+        return response
+
+    def _lookup_remote_function(self) -> Any:
+        import modal
+
+        self._remote_function = modal.Function.from_name(self.app_name, self.function_name)
+        return self._remote_function
+
+
+TransformersRuntime = LocalRuntime
+
+
+def get_model_runtime() -> InferenceRuntime:
+    if deterministic_fallback_enabled() and not env_flag("USE_MODAL_INFERENCE"):
+        return DeterministicDevRuntime()
+    local_runtime = LocalRuntime()
+    if env_flag("USE_MODAL_INFERENCE"):
+        return ModalRuntime(local_runtime=local_runtime)
+    return local_runtime

@@ -17,6 +17,7 @@ session_logs/
 
 # Local machine and agent/tooling state
 .DS_Store
+.env
 .opencode/
 .agents.zip
 ml-intern/
