@@ -136,7 +136,7 @@ Root tests cover poker flow, app sessions, leaderboard persistence, logging, mod
 ## Submission Tracks And Prize Notes
 
 - Thousand Token Wood: primary track. Token Hold'em is an interactive AI-native poker game with a custom tavern UI and autonomous small-model personalities.
-- OpenAI Best Use of Codex: eligible once the connected GitHub repo or Space contains Codex-attributed commits. Placeholder: add PR/commit link here.
+- OpenAI Best Use of Codex: eligible once the connected GitHub repo or Space contains Codex-attributed commits. Codex-attributed commit: https://github.com/Andrew-Girgis/token-holdem/commit/97b78fd9317a3c8cd50cf9a0a6942b964bcef363
 - NVIDIA Nemotron Hardware Prize: eligible because the roster uses `nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF` as an active Modal GGUF seat. Note for judges: Nemotron Nano is one of the table agents.
 - Modal Best Use of Modal: eligible because model decisions run through Modal at app runtime, including GGUF seats via llama.cpp and Transformers seats via Hub-loaded models.
 - Off Brand bonus badge: eligible because the app uses a custom full-page tavern/poker-table UI instead of stock Gradio layout.
