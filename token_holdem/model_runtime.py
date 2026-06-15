@@ -21,6 +21,7 @@ SUPPORTED_TRANSFORMERS_MODELS = {
     "Cohere North Mini": "Qwen/Qwen3-0.6B",
     "Mistral": "Qwen/Qwen3-0.6B",
     "OpenAI Open Model 20B": "Qwen/Qwen3-0.6B",
+    "Llama Scout": "Qwen/Qwen3-0.6B",
 }
 
 

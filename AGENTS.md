@@ -9,15 +9,21 @@
 
 ## Setup And Checks
 
-- Root package is currently minimal: Python `>=3.13`, no dependencies, and `main.py` is the only root code entrypoint.
+- Root app is Token Hold'em, a Gradio Texas Hold'em poker tavern implemented from the repo root.
+- Root package requires Python `>=3.13` and uses `gradio`, `accelerate`, `torch`, `transformers`, `treys`, and `pytest` from `pyproject.toml`.
+- The app entrypoint is `app.py`; `token_holdem/render.py` owns HTML/CSS table rendering and `token_holdem/engine.py` owns deterministic game rules.
 - If using `ml-intern/` as a tool, set it up separately with `cd ml-intern && uv sync --locked --extra dev`.
+- Root checks are `uv sync` and `uv run pytest`.
 - Checks for `ml-intern/` are not checks for the root app; only run them when changing `ml-intern/` files.
 - For `ml-intern/` changes, CI runs Python 3.12 with `uv sync --locked --extra dev`, then `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest`.
 
 ## Local App
 
-- No root Gradio app exists yet. If creating one, add explicit run/check commands here after choosing the app entrypoint.
+- Run the root Gradio app with `uv run python app.py`.
+- Open the printed Gradio URL, usually `http://127.0.0.1:7860/`.
+- Run root tests with `uv run pytest`.
 - Use the docs in `ml-intern/docs/agent-context/` before re-fetching Gradio/Hugging Face/llama.cpp pages.
+- The current table layout renders exactly 8 stable seats: seat 0 is the human bottom-center, seats 1-7 are LLM seats around the table, community cards live in the fixed center zone, and action buttons remain outside the table art in Gradio controls.
 
 ## Runtime Notes
 
