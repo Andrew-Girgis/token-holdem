@@ -187,7 +187,7 @@ Root tests cover poker flow, app sessions, leaderboard persistence, logging, mod
 - Modal Best Use of Modal: eligible because model decisions run through Modal at app runtime, including GGUF seats via llama.cpp and Transformers seats via Hub-loaded models.
 - Off Brand bonus badge: eligible because the app uses a custom full-page tavern/poker-table UI instead of stock Gradio layout.
 - Tiny Titan bonus badge: candidate claim through the Qwen 0.6B, Llama 1B, and Nemotron Nano 4B-or-smaller seats. The full roster also includes larger under-32B models, so the demo should emphasize tiny-seat impact.
-- Best Demo bonus badge: placeholder for demo video URL and social post URL.
+- Best Demo bonus badge: demo video URL and social post URL are listed below for judges.
 - Best Agent bonus badge: candidate claim through autonomous poker agents that read state, choose legal actions, and produce persona-grounded commentary.
 - Bonus Quest Champion: candidate if the final Space README includes the Modal, Nemotron, custom UI, tiny-model, demo, and agent notes above.
 - Judges' Wildcard: all submissions are considered.
@@ -200,9 +200,9 @@ Root tests cover poker flow, app sessions, leaderboard persistence, logging, mod
 4. Run `AI Arena` for one hand.
 5. Open `Leaderboard` and `Hall of Fame` to see recorded outcomes.
 
-Demo video placeholder: `TODO: add demo video URL`
+Demo video: https://youtu.be/hXPOF0UwQYA
 
-Social post placeholder: `TODO: add social post URL`
+Social post: https://x.com/AndrewGirgis/status/2066668850662273466?s=20
 
 ## Known Limitations
 
