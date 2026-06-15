@@ -1,13 +1,15 @@
 ---
 title: Token Hold'em
+emoji: 🃏
 colorFrom: red
-colorTo: amber
-sdk: gradio
-sdk_version: 6.18.0
-app_file: app.py
+colorTo: purple
+sdk: docker
+app_port: 7860
+short_description: Modal-powered LLM poker arena
+startup_duration_timeout: 30m
 pinned: false
 tags:
-  - gradio
+  - docker
   - modal
   - poker
   - game

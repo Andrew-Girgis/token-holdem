@@ -1,0 +1,14 @@
+.git
+.env
+.venv
+.uv-cache
+.pytest_cache
+__pycache__
+*.pyc
+logs
+session_logs
+token_holdem.sqlite3
+ml-intern
+2026_06_14_hugging_face_small_hack.egg-info
+*.egg-info
+.DS_Store
