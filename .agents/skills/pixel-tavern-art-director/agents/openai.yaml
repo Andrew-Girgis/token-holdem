@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pixel Tavern Art Director"
+  short_description: "Pixel art direction for Token Holdem"
+  default_prompt: "Use $pixel-tavern-art-director to define a cozy tavern poker scene style bible and image prompts."

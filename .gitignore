@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+
+# Virtual environments
+.venv
+
+# Runtime app state
+token_holdem.sqlite3
+logs/
+session_logs/
+
+# Local machine and agent/tooling state
+.DS_Store
+.opencode/
+.agents.zip
+ml-intern/

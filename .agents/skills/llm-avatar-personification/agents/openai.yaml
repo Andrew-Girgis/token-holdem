@@ -1,0 +1,4 @@
+interface:
+  display_name: "LLM Avatar Personification"
+  short_description: "Design poker avatar personas"
+  default_prompt: "Use $llm-avatar-personification to create Token Hold'em AI player avatar concepts and image prompts."

@@ -1,0 +1,18 @@
+[project]
+name = "2026-06-14-hugging-face-small-hack"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "accelerate>=1.14.0",
+    "gradio>=6.18.0",
+    "pytest>=9.1.0",
+    "torch>=2.12.0",
+    "transformers>=5.12.0",
+    "treys>=0.1.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

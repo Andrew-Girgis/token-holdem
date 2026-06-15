@@ -1,0 +1,4 @@
+interface:
+  display_name: "Poker Table UI Layout"
+  short_description: "Design readable 8-seat Hold'em table layouts"
+  default_prompt: "Use $poker-table-ui-layout to plan an 8-player Token Hold'em poker table UI layout."

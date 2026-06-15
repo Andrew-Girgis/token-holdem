@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cozy Game Polish QA"
+  short_description: "Review cozy poker UI polish and game feel"
+  default_prompt: "Use $cozy-game-polish-qa to run a final polish pass on Token Hold'em."

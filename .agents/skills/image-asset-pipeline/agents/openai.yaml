@@ -1,0 +1,4 @@
+interface:
+  display_name: "Image Asset Pipeline"
+  short_description: "Plan, name, generate, and integrate game art"
+  default_prompt: "Use $image-asset-pipeline to generate and integrate Token Hold'em UI-ready image assets."
