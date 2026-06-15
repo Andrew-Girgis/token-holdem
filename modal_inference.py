@@ -29,6 +29,10 @@ image = (
 app = modal.App(APP_NAME, image=image, volumes={MODEL_CACHE_DIR: hf_cache})
 
 
+def _commit_model_cache() -> None:
+    hf_cache.commit()
+
+
 @lru_cache(maxsize=2)
 def _load_model(model_id: str) -> tuple[Any, Any]:
     import torch
@@ -50,6 +54,7 @@ def _load_model(model_id: str) -> tuple[Any, Any]:
     model.eval()
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
+    _commit_model_cache()
     return model, tokenizer
 
 
@@ -71,6 +76,7 @@ def _load_multimodal_model(model_id: str) -> tuple[Any, Any]:
         cache_dir=MODEL_CACHE_DIR,
     )
     model.eval()
+    _commit_model_cache()
     return model, processor
 
 
@@ -87,6 +93,7 @@ def _load_gguf_model(model_id: str) -> Any:
         filename=filename,
         cache_dir=MODEL_CACHE_DIR,
     )
+    _commit_model_cache()
     return Llama(
         model_path=model_path,
         n_ctx=int(os.getenv("TOKEN_HOLDEM_GGUF_CONTEXT", "4096")),
