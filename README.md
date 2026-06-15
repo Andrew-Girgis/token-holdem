@@ -9,12 +9,36 @@ short_description: Modal-powered LLM poker arena
 startup_duration_timeout: 30m
 pinned: false
 tags:
+  - gradio
   - docker
   - modal
+  - openai
+  - nvidia
+  - nemotron
   - poker
   - game
   - agents
   - build-small-hackathon
+  - thousand-token-wood
+  - track:wood
+  - sponsor:openai
+  - sponsor:nvidia
+  - sponsor:modal
+  - openai-codex
+  - best-use-of-codex
+  - best-use-of-modal
+  - off-brand
+  - achievement:offbrand
+  - tiny-titan
+  - achievement:tiny-titan
+  - badge-tiny-titan
+  - best-demo
+  - achievement:best-demo
+  - achievement:sharing
+  - best-agent
+  - agentic
+  - bonus-quest-champion
+  - judges-wildcard
 ---
 
 # Token Hold'em
