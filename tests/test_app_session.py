@@ -1,5 +1,5 @@
 import app
-from app import _start_game, _start_next_cash_hand, action_handler, start_play_with_runtime
+from app import _start_game, _start_next_cash_hand, action_handler, run_arena, start_play_with_runtime
 from token_holdem.agents import fallback_decide
 from token_holdem.model_runtime import RuntimeDecision
 
@@ -48,3 +48,25 @@ def test_action_handler_yields_full_gradio_outputs(monkeypatch):
     assert all(len(output) == 15 for output in outputs)
     assert "Qwen/Qwen3" not in outputs[-1][2]
     assert "[local_model]" not in outputs[-1][2]
+
+
+def test_quick_play_runtime_path_reaches_human_turn(monkeypatch):
+    monkeypatch.setattr(app, "model_runtime", TestRuntime())
+
+    outputs = list(start_play_with_runtime("Tester", 100))
+
+    assert outputs
+    session = outputs[-1][0]
+    assert session.game is not None
+    assert session.game.current_player().is_human or session.game.result
+
+
+def test_arena_runtime_path_runs_with_mocked_models(monkeypatch):
+    monkeypatch.setattr(app, "model_runtime", TestRuntime())
+    monkeypatch.setattr(app.time, "sleep", lambda _seconds: None)
+
+    outputs = list(run_arena(100, 1))
+
+    assert outputs
+    assert all(len(output) == 4 for output in outputs)
+    assert "could not act because model inference is unavailable" not in outputs[-1][1]

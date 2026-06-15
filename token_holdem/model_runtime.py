@@ -17,13 +17,24 @@ logger = get_logger("token_holdem.model_runtime")
 
 SUPPORTED_TRANSFORMERS_MODELS = {
     "Nemotron Nano": "nvidia/NVIDIA-Nemotron-3-Nano-4B-GGUF",
-    "Qwen": "lm-kit/qwen-3-0.6b-instruct-gguf",
+    "Qwen": "Qwen/Qwen3-0.6B",
     "Gemma": "google/gemma-4-12B-it",
-    "Cohere North Mini": "CohereLabs/North-Mini-Code-1.0",
-    "Mistral": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+    "Cohere Command R7B": "CohereLabs/c4ai-command-r7b-12-2024",
+    "Mistral": "mistralai/Mistral-7B-Instruct-v0.2",
     "OpenAI Open Model 20B": "openai/gpt-oss-20b",
-    "Llama Scout": "meta-llama/Llama-3.2-1B-Instruct",
+    "Llama Scout": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 }
+
+DEFAULT_MODAL_DISABLED_MODEL_NAMES: set[str] = set()
+DEFAULT_MODAL_MODEL_NAMES = set(SUPPORTED_TRANSFORMERS_MODELS) - DEFAULT_MODAL_DISABLED_MODEL_NAMES
+MULTIMODAL_MODAL_MODEL_IDS = {"google/gemma-4-12B-it"}
+MODAL_WORKER_CLASS_BY_FAMILY = {
+    "causal": "CausalModelWorker",
+    "heavy_causal": "HeavyCausalModelWorker",
+    "multimodal": "MultimodalModelWorker",
+    "gguf": "GgufModelWorker",
+}
+DEFAULT_MODAL_TIMEOUT_SECONDS = 300.0
 
 
 @dataclass
@@ -59,9 +70,11 @@ def deterministic_fallback_enabled() -> bool:
     return env_flag("TOKEN_HOLDEM_ALLOW_DETERMINISTIC_BOTS")
 
 
-def configured_modal_model_names() -> set[str]:
-    configured = os.getenv("TOKEN_HOLDEM_MODAL_MODEL_NAMES", "all")
-    if configured.strip().lower() in {"", "all", "*"}:
+def configured_modal_model_names(configured: str | None = None) -> set[str]:
+    configured = os.getenv("TOKEN_HOLDEM_MODAL_MODEL_NAMES") if configured is None else configured
+    if configured is None or configured.strip().lower() in {"", "default"}:
+        return set(DEFAULT_MODAL_MODEL_NAMES)
+    if configured.strip().lower() in {"all", "*"}:
         return {profile.name for profile in ROSTER}
     return {name.strip() for name in configured.split(",") if name.strip()}
 
@@ -75,14 +88,14 @@ def model_runtime_statuses(enabled_names: set[str] | None = None) -> list[dict[s
             state = "disabled"
             note = "Not included in TOKEN_HOLDEM_MODAL_MODEL_NAMES."
         elif requires_gguf_runtime(model_id):
-            state = "active through Modal GGUF/llama.cpp"
-            note = "Modal downloads the GGUF and runs it with llama.cpp."
-        elif profile.name == "Llama Scout":
-            state = "active through Modal if HF access is granted"
-            note = "This Hub repository is gated; the Modal HF secret must have access."
+            state = "active through Modal warm GGUF worker"
+            note = "A parameterized Modal class loads this GGUF once per warm model worker with llama.cpp."
+        elif model_id in MULTIMODAL_MODAL_MODEL_IDS:
+            state = "active through Modal warm multimodal worker"
+            note = "A parameterized Modal class loads this model once per warm model worker."
         else:
-            state = "active through Modal Transformers"
-            note = "Modal loads the Transformers model from the Hub."
+            state = "active through Modal warm Transformers worker"
+            note = "A parameterized Modal class loads this model once per warm model worker."
         rows.append({"name": profile.name, "model_id": model_id, "state": state, "note": note})
     return rows
 
@@ -207,6 +220,12 @@ def sanitize_table_talk(text: str) -> str:
         "must be",
         "return only",
         "your response",
+        "this response",
+        "let me know",
+        "what your",
+        "your name",
+        "name is",
+        "wearing",
         "make sure",
         "don't mention",
         "do not mention",
@@ -232,8 +251,8 @@ def sanitize_table_talk(text: str) -> str:
     text = re.sub(r"\bI'll\b", "", text, flags=re.IGNORECASE)
     text = re.sub(r"^['’]m\b", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\b[2-9TJQKA][shdc♠♥♦♣]\b", "", text)
-    text = re.sub(r"\s+", " ", text).strip(" -,:;.")
-    text = re.split(r"(?<=[.!?])\s+", text)[0].strip(" -,:;.")
+    text = re.sub(r"\s+", " ", text).strip(" -,:;.\"'“”‘’")
+    text = re.split(r"(?<=[.!?])\s+", text)[0].strip(" -,:;.\"'“”‘’")
     if not text or len(text.split()) < 3:
         return ""
     return text[:140]
@@ -300,6 +319,20 @@ def safe_action(legal: dict[str, Any]) -> dict[str, Any]:
 
 def requires_gguf_runtime(model_id: str) -> bool:
     return "gguf" in model_id.lower()
+
+
+def modal_runtime_family(model_id: str) -> str:
+    if requires_gguf_runtime(model_id):
+        return "gguf"
+    if model_id == "openai/gpt-oss-20b":
+        return "heavy_causal"
+    if model_id in MULTIMODAL_MODAL_MODEL_IDS:
+        return "multimodal"
+    return "causal"
+
+
+def modal_worker_class_name(model_id: str) -> str:
+    return MODAL_WORKER_CLASS_BY_FAMILY[modal_runtime_family(model_id)]
 
 
 class LocalRuntime:
@@ -429,13 +462,15 @@ class ModalRuntime:
         timeout_seconds: float | None = None,
         enabled_model_names: set[str] | None = None,
         remote_function: Any | None = None,
+        remote_workers: dict[str, Any] | None = None,
     ):
         self.local_runtime = local_runtime or LocalRuntime()
         self.app_name = app_name or os.getenv("TOKEN_HOLDEM_MODAL_APP_NAME", "token-holdem-inference")
         self.function_name = function_name
-        self.timeout_seconds = timeout_seconds or float(os.getenv("TOKEN_HOLDEM_MODAL_TIMEOUT_SECONDS", "300"))
+        self.timeout_seconds = timeout_seconds or float(os.getenv("TOKEN_HOLDEM_MODAL_TIMEOUT_SECONDS", str(DEFAULT_MODAL_TIMEOUT_SECONDS)))
         self.enabled_model_names = enabled_model_names if enabled_model_names is not None else configured_modal_model_names()
         self._remote_function = remote_function
+        self._remote_workers = remote_workers or {}
 
     def decide(self, profile: AgentProfile, state_summary: dict[str, Any]) -> RuntimeDecision:
         if profile.name not in self.enabled_model_names:
@@ -443,8 +478,9 @@ class ModalRuntime:
             log_event(logger, "model_runtime_modal_disabled", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=profile.model_id, reason=message)
             raise ModelRuntimeUnavailable(message)
         model_id = SUPPORTED_TRANSFORMERS_MODELS.get(profile.name, profile.model_id)
+        worker_class = modal_worker_class_name(model_id)
         try:
-            log_event(logger, "model_runtime_modal_call_started", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, app_name=self.app_name, function_name=self.function_name)
+            log_event(logger, "model_runtime_modal_call_started", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, app_name=self.app_name, worker_class=worker_class)
             response = self._call_remote(profile, model_id, state_summary)
         except Exception as exc:  # noqa: BLE001 - converted to a visible model-unavailable state.
             log_event(logger, "model_runtime_modal_failed", session_id=state_summary.get("session_id", ""), hand_id=state_summary.get("hand_id", ""), orbit_id=state_summary.get("orbit_id", ""), player=profile.name, model_id=model_id, error_type=exc.__class__.__name__, error=str(exc))
@@ -470,6 +506,24 @@ class ModalRuntime:
         return RuntimeDecision(decision, "modal_model", model_id)
 
     def _call_remote(self, profile: AgentProfile, model_id: str, state_summary: dict[str, Any]) -> dict[str, Any]:
+        if self._remote_function is not None:
+            return self._call_legacy_remote_function(profile, model_id, state_summary)
+        worker_class_name = modal_worker_class_name(model_id)
+        worker_cls = self._remote_workers.get(worker_class_name) or self._lookup_remote_worker_class(worker_class_name)
+        worker = worker_cls(model_id=model_id)
+        call = worker.decide.spawn(
+            state_summary,
+            profile.name,
+            profile.persona,
+            state_summary["legal"],
+            build_prompt(profile, state_summary),
+        )
+        response = call.get(timeout=self.timeout_seconds)
+        if not isinstance(response, dict):
+            raise TypeError(f"Expected Modal response dict, got {type(response).__name__}")
+        return response
+
+    def _call_legacy_remote_function(self, profile: AgentProfile, model_id: str, state_summary: dict[str, Any]) -> dict[str, Any]:
         remote_function = self._remote_function or self._lookup_remote_function()
         call = remote_function.spawn(
             state_summary,
@@ -483,6 +537,13 @@ class ModalRuntime:
         if not isinstance(response, dict):
             raise TypeError(f"Expected Modal response dict, got {type(response).__name__}")
         return response
+
+    def _lookup_remote_worker_class(self, worker_class_name: str) -> Any:
+        import modal
+
+        worker_cls = modal.Cls.from_name(self.app_name, worker_class_name)
+        self._remote_workers[worker_class_name] = worker_cls
+        return worker_cls
 
     def _lookup_remote_function(self) -> Any:
         import modal
