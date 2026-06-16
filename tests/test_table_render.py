@@ -1,5 +1,5 @@
 from app import _start_game
-from token_holdem.render import DEALER_BUTTON_COORDS, SEAT_COORDS, table_html
+from token_holdem.render import CSS, DEALER_BUTTON_COORDS, SEAT_COORDS, table_html
 
 
 def test_table_layout_constants_are_eight_seat_maps():
@@ -52,3 +52,14 @@ def test_dealer_button_uses_slot_coordinates():
     html = table_html(session.game)
 
     assert "--dealer-x: 50%; --dealer-y: 70%;" in html
+
+
+def test_poker_stage_paints_above_side_rails():
+    assert ".poker-stage {\n  grid-area: stage;\n  z-index: calc(var(--z-hud) + 1);" in CSS
+
+
+def test_table_scales_to_stage_container_not_viewport():
+    assert "container-type: inline-size;" in CSS
+    assert ".token-table {\n  position: relative;\n  width: 100%;" in CSS
+    assert "height: clamp(500px, 62.5cqw, 700px);" in CSS
+    assert "width: clamp(132px, 14cqw, 206px);" in CSS
