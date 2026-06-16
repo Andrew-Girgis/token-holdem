@@ -451,7 +451,7 @@ CSS = """
   color: var(--ink) !important;
   background:
     linear-gradient(180deg, rgba(10, 7, 9, .58), rgba(10, 7, 9, .62)),
-    url("/gradio_api/file=assets/token-holdem/tavern-bg-main-1672x941.png") center top / cover fixed,
+    url("/gradio_api/file=assets/token-holdem/tavern-bg-main-1672x941.png") center top / min(100vw, 1672px) auto no-repeat,
     radial-gradient(circle at 18% 8%, rgba(255, 189, 94, .13), transparent 18rem),
     radial-gradient(circle at 88% 18%, rgba(255, 211, 122, .09), transparent 16rem),
     repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 2px, transparent 2px 34px),
@@ -494,7 +494,7 @@ CSS = """
   width: min(100%, 1540px);
   margin: 0 auto;
   padding: clamp(10px, 1.4vw, 18px);
-  overflow: hidden;
+  overflow: visible;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -533,7 +533,6 @@ CSS = """
 .tavern-scene-chrome .tavern-background {
   background:
     linear-gradient(180deg, rgba(12,8,8,.08), rgba(12,8,8,.16)),
-    url("/gradio_api/file=assets/token-holdem/tavern-bg-main-1672x941.png") center center / cover no-repeat,
     linear-gradient(180deg, rgba(93,86,82,.35), rgba(24,14,16,.72) 47%, rgba(23,12,8,.92)),
     repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 2px, transparent 2px 44px),
     repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 3px, transparent 3px 86px);
@@ -584,7 +583,8 @@ CSS = """
 .tavern-right-rail { grid-area: right; }
 .poker-stage {
   grid-area: stage;
-  z-index: var(--z-stage);
+  z-index: calc(var(--z-hud) + 1);
+  container-type: inline-size;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -674,9 +674,12 @@ CSS = """
 .table-status-bar span { min-height: 26px; display: inline-flex; align-items: center; padding: 2px 9px; border: 1px solid rgba(196,147,78,.48); border-radius: 6px; background: rgba(18,12,16,.70); box-shadow: 0 2px 0 rgba(0,0,0,.46); }
 .token-table {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: clamp(500px, 62.5cqw, 700px);
   overflow: visible;
-  aspect-ratio: 16 / 10;
-  min-height: clamp(560px, 59dvh, 720px);
+  aspect-ratio: auto;
+  min-height: 0;
   border: 0;
   border-radius: 26px;
   background: transparent;
@@ -724,7 +727,7 @@ CSS = """
   position: absolute;
   inset: 13% 4% 7%;
   z-index: var(--z-table);
-  border: clamp(22px, 3.1vw, 36px) solid var(--walnut);
+  border: clamp(18px, 3.1cqw, 34px) solid var(--walnut);
   border-radius: 50%;
   background:
     linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
@@ -809,9 +812,9 @@ CSS = """
 .pot { color: #ffe29a; font: 900 24px ui-monospace, monospace; text-shadow: 0 0 12px rgba(255,211,122,.3); }
 .street { color: #b7f7c1; font: 800 13px ui-monospace, monospace; margin-bottom: 8px; }
 .result-banner { margin-top: 8px; padding: 7px 9px; border-radius: 6px; color: #120b17; background: linear-gradient(180deg, #ffe29a, #dca861); font: 900 12px ui-monospace, monospace; box-shadow: 0 3px 0 #5b331c; }
-.card-row { position: relative; z-index: calc(var(--z-table) + 14); display: flex; justify-content: center; align-items: center; gap: clamp(5px, .8vw, 10px); min-height: clamp(58px, 8vw, 78px); }
+.card-row { position: relative; z-index: calc(var(--z-table) + 14); display: flex; justify-content: center; align-items: center; gap: clamp(5px, .8cqw, 10px); min-height: clamp(52px, 8cqw, 78px); }
 .card, .mini-card { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; background: linear-gradient(180deg, #fff9e8, #ead7b4); color: #1b1520; border: 3px solid #3b2a24; border-radius: 4px; font-weight: 900; font-family: ui-monospace, monospace; box-shadow: 4px 4px 0 #000, 0 0 0 2px rgba(255,255,255,.18) inset; image-rendering: pixelated; }
-.card { width: clamp(44px, 5.2vw, 58px); height: clamp(62px, 7.3vw, 78px); font-size: clamp(16px, 2vw, 20px); }
+.card { width: clamp(40px, 5.2cqw, 58px); height: clamp(56px, 7.3cqw, 78px); font-size: clamp(15px, 2cqw, 20px); }
 .mini-card { width: 28px; height: 38px; font-size: 12px; }
 .red-card { color: #a72828; }
 .hidden-card { background:
@@ -828,8 +831,8 @@ CSS = """
   left: var(--seat-x);
   top: var(--seat-y);
   transform: translate(-50%, -50%);
-  width: clamp(150px, 14vw, 206px);
-  min-height: 202px;
+  width: clamp(132px, 14cqw, 206px);
+  min-height: 184px;
   display: block;
   padding: 0;
   text-align: center;
@@ -840,11 +843,11 @@ CSS = """
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, opacity 180ms ease, filter 180ms ease;
   pointer-events: auto;
 }
-.seat-2, .seat-6 { width: clamp(138px, 12.2vw, 178px); }
-.human-seat { width: clamp(210px, 20vw, 286px); min-height: 240px; border-color: rgba(255,211,122,.8); }
+.seat-2, .seat-6 { width: clamp(124px, 12.2cqw, 178px); }
+.human-seat { width: clamp(190px, 20cqw, 286px); min-height: 216px; border-color: rgba(255,211,122,.8); }
 .seat-layer > .human-seat { z-index: calc(var(--z-avatars) + 2); }
-.avatar-layer { position: relative; z-index: 2; min-width: 0; height: clamp(132px, 13vw, 184px); pointer-events: none; }
-.human-seat .avatar-layer { height: clamp(160px, 16vw, 222px); }
+.avatar-layer { position: relative; z-index: 2; min-width: 0; height: clamp(112px, 13cqw, 184px); pointer-events: none; }
+.human-seat .avatar-layer { height: clamp(138px, 16cqw, 222px); }
 .avatar-slot {
   width: 100%;
   height: 100%;
@@ -915,7 +918,7 @@ CSS = """
   left: var(--bubble-x);
   top: var(--bubble-y);
   transform: translate(-50%, -100%);
-  width: clamp(150px, 16vw, 210px);
+  width: clamp(142px, 16cqw, 210px);
   max-height: 76px;
   overflow: hidden;
   padding: 8px 10px;
@@ -1042,49 +1045,18 @@ button:focus-visible { outline: 3px solid var(--ember) !important; outline-offse
 @media (max-width: 980px) {
   .tavern-app-shell > .styler,
   .tavern-app-shell > .gr-group > .styler {
-    min-height: auto;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(190px, 23vw) minmax(460px, 1fr);
     grid-template-areas:
-      "left"
-      "stage"
-      "right"
-      "actions"
-      "status";
+      "left stage"
+      "right stage"
+      "actions actions"
+      "status status";
   }
-  .tavern-left-rail .setup-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rail-plaque { display: none; }
-  .token-table { min-height: 660px; aspect-ratio: auto; }
-  .table-felt { inset: 3% 4% 21%; border-width: 12px; }
-  .center-hud { top: 38%; width: min(76%, 460px); min-width: 280px; }
-  .seat { width: 136px; min-height: 128px; padding: 6px; grid-template-columns: 36px minmax(0, 1fr); }
-  .seat-talk { display: none; }
-  .human-seat { width: min(78%, 320px); top: 82% !important; }
-  .avatar-slot { width: 36px; height: 36px; }
-  .mini-card { width: 24px; height: 34px; }
   .action-row { grid-template-columns: repeat(4, minmax(112px, 1fr)); }
 }
 @media (max-width: 680px) {
-  .app-title { padding: 12px; }
-  .tavern-app-shell { padding: 7px; border-left: 0; border-right: 0; }
-  .tavern-app-shell > .styler,
-  .tavern-app-shell > .gr-group > .styler { gap: 8px; }
-  .tavern-left-rail .setup-panel { grid-template-columns: 1fr; }
-  .token-table-shell { margin-top: 6px; }
-  .table-status-bar { justify-content: flex-start; overflow-x: auto; padding-bottom: 3px; }
-  .token-table { min-height: 800px; border-width: 4px; }
-  .table-felt { inset: 6% 3% 32%; border-width: 10px; }
-  .center-hud { top: 27%; width: calc(100% - 28px); min-width: 0; padding: 10px; }
-  .seat-ring { position: absolute; left: 10px; right: 10px; top: 43%; bottom: 172px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; overflow: auto; align-content: start; }
-  .seat { position: relative; left: auto; top: auto; transform: none; width: auto; min-height: 108px; }
-  .human-seat { position: absolute; left: 50%; right: auto; top: auto !important; bottom: 10px; transform: translateX(-50%); width: calc(100% - 28px); min-height: 134px; }
-  .seat-0 { order: 8; }
-  .dealer-button { width: 30px; height: 30px; font-size: 14px; }
-  .table-speech-layer { display: none; }
-  .current-actor { font-size: 15px; }
-  .pot { font-size: 19px; }
-  .seat-name { font-size: 12px; }
-  .persona-role { max-width: 76px; }
-  .action-row { grid-template-columns: repeat(2, minmax(126px, 1fr)); }
-  .tavern-panel, .action-panel { padding: 9px; }
+  html, body, .gradio-container { min-width: 1024px; overflow-x: auto; }
+  .tavern-app-shell { min-width: 960px; }
+  .action-row { grid-template-columns: repeat(4, minmax(112px, 1fr)); }
 }
 """
