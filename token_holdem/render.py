@@ -451,7 +451,7 @@ CSS = """
   color: var(--ink) !important;
   background:
     linear-gradient(180deg, rgba(10, 7, 9, .58), rgba(10, 7, 9, .62)),
-    url("/gradio_api/file=assets/token-holdem/tavern-bg-main-1672x941.png") center top / cover fixed,
+    url("/gradio_api/file=assets/token-holdem/tavern-bg-main-1672x941.png") center top / min(100vw, 1672px) auto no-repeat,
     radial-gradient(circle at 18% 8%, rgba(255, 189, 94, .13), transparent 18rem),
     radial-gradient(circle at 88% 18%, rgba(255, 211, 122, .09), transparent 16rem),
     repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 2px, transparent 2px 34px),
@@ -494,7 +494,7 @@ CSS = """
   width: min(100%, 1540px);
   margin: 0 auto;
   padding: clamp(10px, 1.4vw, 18px);
-  overflow: hidden;
+  overflow: visible;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -533,7 +533,6 @@ CSS = """
 .tavern-scene-chrome .tavern-background {
   background:
     linear-gradient(180deg, rgba(12,8,8,.08), rgba(12,8,8,.16)),
-    url("/gradio_api/file=assets/token-holdem/tavern-bg-main-1672x941.png") center center / cover no-repeat,
     linear-gradient(180deg, rgba(93,86,82,.35), rgba(24,14,16,.72) 47%, rgba(23,12,8,.92)),
     repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 2px, transparent 2px 44px),
     repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 3px, transparent 3px 86px);
@@ -1046,53 +1045,18 @@ button:focus-visible { outline: 3px solid var(--ember) !important; outline-offse
 @media (max-width: 980px) {
   .tavern-app-shell > .styler,
   .tavern-app-shell > .gr-group > .styler {
-    min-height: auto;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(190px, 23vw) minmax(460px, 1fr);
     grid-template-areas:
-      "left"
-      "stage"
-      "right"
-      "actions"
-      "status";
+      "left stage"
+      "right stage"
+      "actions actions"
+      "status status";
   }
-  .tavern-left-rail .setup-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rail-plaque { display: none; }
-  .token-table { height: clamp(600px, 86cqw, 660px); min-height: 0; aspect-ratio: auto; }
-  .table-felt { inset: 3% 4% 21%; border-width: 12px; }
-  .center-hud { top: 38%; width: min(76%, 460px); min-width: 280px; }
-  .seat { width: 136px; min-height: 128px; padding: 6px; grid-template-columns: 36px minmax(0, 1fr); }
-  .seat-talk { display: none; }
-  .human-seat { width: min(78%, 320px); top: 82% !important; }
-  .avatar-slot { width: 36px; height: 36px; }
-  .mini-card { width: 24px; height: 34px; }
   .action-row { grid-template-columns: repeat(4, minmax(112px, 1fr)); }
 }
 @media (max-width: 680px) {
-  .app-title { padding: 12px; }
-  .tavern-app-shell { padding: 7px; border-left: 0; border-right: 0; }
-  .tavern-app-shell > .styler,
-  .tavern-app-shell > .gr-group > .styler { gap: 8px; }
-  .tavern-left-rail .setup-panel { grid-template-columns: 1fr; }
-  .token-table-shell { margin-top: 6px; }
-  .table-status-bar { justify-content: flex-start; overflow-x: auto; padding-bottom: 3px; }
-  .token-table { height: min(760px, max(640px, calc(100dvh - 84px))); min-height: 0; border-width: 4px; }
-  .table-felt { inset: 6% 3% 32%; border-width: 10px; }
-  .center-hud { top: 27%; width: calc(100% - 28px); min-width: 0; padding: 10px; }
-  .seat-ring { position: absolute; left: 10px; right: 10px; top: 43%; bottom: 172px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; overflow: auto; align-content: start; }
-  .seat { position: relative; left: auto; top: auto; transform: none; width: auto; min-height: 104px; }
-  .human-seat { position: absolute; left: 50%; right: auto; top: auto !important; bottom: 10px; transform: translateX(-50%); width: calc(100% - 28px); min-height: 124px; }
-  .avatar-layer { height: 86px; }
-  .human-seat .avatar-layer { height: 104px; }
-  .avatar-slot img { width: 112%; height: 112%; }
-  .seat-plaque { margin-top: -12px; padding: 5px 6px 6px; }
-  .seat-0 { order: 8; }
-  .dealer-button { width: 30px; height: 30px; font-size: 14px; }
-  .table-speech-layer { display: none; }
-  .current-actor { font-size: 15px; }
-  .pot { font-size: 19px; }
-  .seat-name { font-size: 12px; }
-  .persona-role { max-width: 76px; }
-  .action-row { grid-template-columns: repeat(2, minmax(126px, 1fr)); }
-  .tavern-panel, .action-panel { padding: 9px; }
+  html, body, .gradio-container { min-width: 1024px; overflow-x: auto; }
+  .tavern-app-shell { min-width: 960px; }
+  .action-row { grid-template-columns: repeat(4, minmax(112px, 1fr)); }
 }
 """
